@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - ALLOWED_ORIGINS=*
+    volumes:
+      - ./model:/app/model        # persist trained LSTM models
+      - ./backend/.cache:/app/backend/.cache  # persist data cache
+    restart: unless-stopped
+
+  # Optional: serve frontend with nginx
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+    restart: unless-stopped

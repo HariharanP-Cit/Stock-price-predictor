@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockAI – AI Investment Predictor for Indian Markets</title>
+  <meta name="description" content="Predict stock prices with LSTM deep learning, analyze risk, and get personalized Indian stock recommendations tailored to your investment profile." />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary:  { DEFAULT: '#6366f1', dark: '#4f46e5' },
+            accent:   { DEFAULT: '#10b981', dark: '#059669' },
+            surface:  { DEFAULT: '#0f172a', card: '#1e293b', border: '#334155' },
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          animation: {
+            'fade-up':    'fadeUp 0.6s ease forwards',
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4,0,0.6,1) infinite',
+            'spin-slow':  'spin 8s linear infinite',
+          },
+          keyframes: {
+            fadeUp: {
+              '0%':   { opacity: '0', transform: 'translateY(24px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)'    },
+            },
+          },
+        },
+      },
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="styles/custom.css" />
+</head>
+
+<body class="bg-surface text-slate-100 font-sans min-h-screen dark antialiased">
+
+  <!-- ─── NAVBAR ─────────────────────────────────────────────────────────── -->
+  <nav class="fixed top-0 inset-x-0 z-50 border-b border-surface-border bg-surface/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2 font-extrabold text-xl tracking-tight">
+        <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-sm">AI</span>
+        Stock<span class="text-primary">AI</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
+        <a href="#features"  class="hover:text-white transition">Features</a>
+        <a href="#how"       class="hover:text-white transition">How It Works</a>
+        <a href="#stocks"    class="hover:text-white transition">Stocks</a>
+      </div>
+      <a href="dashboard.html"
+         class="px-5 py-2 rounded-xl bg-primary hover:bg-primary-dark text-white text-sm font-semibold transition shadow-lg shadow-primary/30">
+        Open Dashboard →
+      </a>
+    </div>
+  </nav>
+
+  <!-- ─── HERO ───────────────────────────────────────────────────────────── -->
+  <section class="relative pt-36 pb-24 px-6 overflow-hidden">
+    <!-- Gradient orbs -->
+    <div class="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-accent/10  rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="relative max-w-4xl mx-auto text-center animate-fade-up">
+      <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/40 bg-primary/10 text-primary text-xs font-semibold uppercase tracking-widest mb-6">
+        <span class="w-2 h-2 rounded-full bg-primary animate-pulse-slow"></span>
+        Powered by LSTM Deep Learning
+      </span>
+      <h1 class="text-5xl md:text-7xl font-black leading-tight tracking-tight mb-6">
+        Predict.<br/>
+        <span class="bg-gradient-to-r from-primary via-violet-400 to-accent bg-clip-text text-transparent">
+          Analyze. Invest.
+        </span>
+      </h1>
+      <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+        AI-powered stock price predictions and personalized Indian market portfolio recommendations —
+        backed by real data from Yahoo Finance.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="#advisor"
+           class="px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-violet-500 text-white font-bold text-base shadow-2xl shadow-primary/40 hover:opacity-90 transition">
+          Get AI Recommendations
+        </a>
+        <a href="dashboard.html"
+           class="px-8 py-4 rounded-2xl border border-surface-border text-slate-300 font-semibold text-base hover:border-primary hover:text-white transition">
+          Live Dashboard →
+        </a>
+      </div>
+    </div>
+
+    <!-- ── Mini preview chart ── -->
+    <div class="mt-20 max-w-3xl mx-auto">
+      <div class="relative rounded-3xl border border-surface-border bg-surface-card p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <p class="text-xs text-slate-500 font-medium">TCS.NS · Tata Consultancy Services</p>
+            <p id="heroPrice" class="text-2xl font-black text-white">₹ —</p>
+          </div>
+          <span id="heroChange" class="px-3 py-1 rounded-full text-xs font-bold bg-accent/10 text-accent">loading…</span>
+        </div>
+        <canvas id="heroChart" height="120"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FEATURES ──────────────────────────────────────────────────────── -->
+  <section id="features" class="py-24 px-6">
+    <div class="max-w-7xl mx-auto">
+      <h2 class="text-3xl md:text-4xl font-black text-center mb-16">
+        Everything you need to invest <span class="text-primary">smarter</span>
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- card -->
+        <div class="feature-card group rounded-3xl border border-surface-border bg-surface-card p-8 hover:border-primary/50 transition duration-300">
+          <div class="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center mb-6 group-hover:bg-primary/25 transition text-2xl">📈</div>
+          <h3 class="font-bold text-lg mb-3">LSTM Price Prediction</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Two-layer LSTM model trained on 2 years of historical price data. Predicts future trends with dropout regularization to avoid overfitting.</p>
+        </div>
+        <div class="feature-card group rounded-3xl border border-surface-border bg-surface-card p-8 hover:border-accent/50 transition duration-300">
+          <div class="w-12 h-12 rounded-2xl bg-accent/15 flex items-center justify-center mb-6 group-hover:bg-accent/25 transition text-2xl">🛡️</div>
+          <h3 class="font-bold text-lg mb-3">Risk Analysis</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Calculates Expected Return, Volatility, Sharpe Ratio, Max Drawdown, and VaR (95%) to classify every stock into Low/Medium/High risk.</p>
+        </div>
+        <div class="feature-card group rounded-3xl border border-surface-border bg-surface-card p-8 hover:border-violet-500/50 transition duration-300">
+          <div class="w-12 h-12 rounded-2xl bg-violet-500/15 flex items-center justify-center mb-6 group-hover:bg-violet-500/25 transition text-2xl">💼</div>
+          <h3 class="font-bold text-lg mb-3">Smart Allocation</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Inverse-volatility portfolio allocation across Nifty 50 stocks. Matches your capital, risk tolerance, and investment horizon automatically.</p>
+        </div>
+        <div class="feature-card group rounded-3xl border border-surface-border bg-surface-card p-8 hover:border-yellow-500/50 transition duration-300">
+          <div class="w-12 h-12 rounded-2xl bg-yellow-500/15 flex items-center justify-center mb-6 group-hover:bg-yellow-500/25 transition text-2xl">📊</div>
+          <h3 class="font-bold text-lg mb-3">Live Dashboard</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Real-time stock prices, gainers/losers, sector breakdown, portfolio tracker, and interactive charts — all in one place.</p>
+        </div>
+        <div class="feature-card group rounded-3xl border border-surface-border bg-surface-card p-8 hover:border-pink-500/50 transition duration-300">
+          <div class="w-12 h-12 rounded-2xl bg-pink-500/15 flex items-center justify-center mb-6 group-hover:bg-pink-500/25 transition text-2xl">⭐</div>
+          <h3 class="font-bold text-lg mb-3">Watchlist</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Track your favourite Indian stocks with a personal watchlist that persists across sessions using localStorage.</p>
+        </div>
+        <div class="feature-card group rounded-3xl border border-surface-border bg-surface-card p-8 hover:border-cyan-500/50 transition duration-300">
+          <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 flex items-center justify-center mb-6 group-hover:bg-cyan-500/25 transition text-2xl">🔔</div>
+          <h3 class="font-bold text-lg mb-3">Price Alerts</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Set upper/lower price thresholds on any stock and get visual alerts when the price crosses your target in real time.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── AI ADVISOR FORM ────────────────────────────────────────────────── -->
+  <section id="advisor" class="py-24 px-6">
+    <div class="max-w-3xl mx-auto">
+      <div class="relative rounded-3xl border border-surface-border bg-surface-card p-10 shadow-2xl overflow-hidden">
+        <!-- Glow -->
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none"></div>
+
+        <h2 class="text-3xl font-black mb-2">AI Portfolio Advisor</h2>
+        <p class="text-slate-400 mb-8 text-sm">Tell us about your investment goals and we'll build a personalised stock portfolio.</p>
+
+        <form id="advisorForm" class="space-y-6" novalidate>
+          <!-- Capital -->
+          <div>
+            <label class="block text-sm font-semibold mb-2 text-slate-300" for="capital">
+              Investment Capital (₹)
+            </label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">₹</span>
+              <input id="capital" type="number" min="10000" placeholder="e.g. 100000"
+                class="w-full pl-8 pr-4 py-3.5 rounded-xl bg-surface border border-surface-border text-white placeholder-slate-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition" required />
+            </div>
+            <p class="text-xs text-slate-600 mt-1">Minimum ₹10,000</p>
+          </div>
+
+          <!-- Risk + Horizon row -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-semibold mb-2 text-slate-300">Risk Tolerance</label>
+              <div class="flex gap-2">
+                <label class="risk-btn flex-1 cursor-pointer">
+                  <input type="radio" name="risk" value="Low" class="sr-only" />
+                  <span class="block py-3 rounded-xl border border-surface-border bg-surface text-center text-sm font-semibold hover:border-accent/60 transition">🟢 Low</span>
+                </label>
+                <label class="risk-btn flex-1 cursor-pointer">
+                  <input type="radio" name="risk" value="Medium" class="sr-only" checked />
+                  <span class="block py-3 rounded-xl border border-yellow-500 bg-yellow-500/10 text-center text-sm font-semibold text-yellow-400">🟡 Medium</span>
+                </label>
+                <label class="risk-btn flex-1 cursor-pointer">
+                  <input type="radio" name="risk" value="High" class="sr-only" />
+                  <span class="block py-3 rounded-xl border border-surface-border bg-surface text-center text-sm font-semibold hover:border-red-500/60 transition">🔴 High</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold mb-2 text-slate-300">Investment Horizon</label>
+              <select id="horizon"
+                class="w-full px-4 py-3.5 rounded-xl bg-surface border border-surface-border text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition">
+                <option value="short">📅 Short Term (&lt;3 months)</option>
+                <option value="mid" selected>📆 Mid Term (3-12 months)</option>
+                <option value="long">🗓️ Long Term (&gt;1 year)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Manual symbols (optional) -->
+          <div>
+            <label class="block text-sm font-semibold mb-2 text-slate-400">
+              Preferred Stocks <span class="font-normal text-slate-600">(optional – comma separated)</span>
+            </label>
+            <input id="manualSymbols" type="text" placeholder="e.g. RELIANCE.NS, TCS.NS, INFY.NS"
+              class="w-full px-4 py-3.5 rounded-xl bg-surface border border-surface-border text-white placeholder-slate-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition" />
+          </div>
+
+          <button id="advisorBtn" type="submit"
+            class="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-violet-500 text-white font-bold text-base hover:opacity-90 active:scale-95 transition shadow-2xl shadow-primary/30 flex items-center justify-center gap-2">
+            <span id="advisorBtnText">🚀 Generate AI Portfolio</span>
+            <svg id="advisorSpinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          </button>
+        </form>
+
+        <!-- Results -->
+        <div id="advisorResults" class="hidden mt-10"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── STOCK PREDICTOR ────────────────────────────────────────────────── -->
+  <section id="stocks" class="py-24 px-6 bg-surface-card/30">
+    <div class="max-w-3xl mx-auto">
+      <h2 class="text-3xl font-black text-center mb-3">Stock Price Predictor</h2>
+      <p class="text-slate-400 text-center mb-10 text-sm">Run an LSTM forecast on any supported Indian stock.</p>
+
+      <div class="rounded-3xl border border-surface-border bg-surface-card p-8">
+        <div class="flex flex-col sm:flex-row gap-3 mb-6">
+          <select id="predictSymbol"
+            class="flex-1 px-4 py-3 rounded-xl bg-surface border border-surface-border text-white focus:border-primary focus:outline-none transition">
+          </select>
+          <select id="predictDays"
+            class="w-32 px-4 py-3 rounded-xl bg-surface border border-surface-border text-white focus:border-primary focus:outline-none transition">
+            <option value="7">7 days</option>
+            <option value="14">14 days</option>
+            <option value="30" selected>30 days</option>
+            <option value="60">60 days</option>
+            <option value="90">90 days</option>
+          </select>
+          <button id="predictBtn"
+            class="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark text-white font-semibold transition flex items-center gap-2">
+            <span id="predictBtnText">Predict</span>
+            <svg id="predictSpinner" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div id="predictResult" class="hidden">
+          <!-- Stats row -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6" id="predictStats"></div>
+          <!-- Chart -->
+          <canvas id="predictChart" height="250"></canvas>
+        </div>
+        <div id="predictError" class="hidden text-red-400 text-sm font-medium py-4 text-center"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── HOW IT WORKS ──────────────────────────────────────────────────── -->
+  <section id="how" class="py-24 px-6">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-3xl md:text-4xl font-black text-center mb-16">How It Works</h2>
+      <div class="relative">
+        <!-- Line -->
+        <div class="hidden md:block absolute left-1/2 top-8 bottom-8 w-px bg-surface-border"></div>
+        <div class="space-y-12">
+          <!-- Step 1 -->
+          <div class="flex flex-col md:flex-row items-center gap-8">
+            <div class="md:w-1/2 md:text-right">
+              <span class="text-xs font-bold text-primary uppercase tracking-widest">Step 1</span>
+              <h3 class="text-xl font-bold mt-2 mb-3">Input Your Investment Profile</h3>
+              <p class="text-slate-400 text-sm leading-relaxed">Enter your capital, choose your risk tolerance and investment horizon. Optionally specify preferred stocks.</p>
+            </div>
+            <div class="w-12 h-12 shrink-0 rounded-full border-2 border-primary bg-surface-card flex items-center justify-center font-black text-primary z-10">1</div>
+            <div class="md:w-1/2"></div>
+          </div>
+          <!-- Step 2 -->
+          <div class="flex flex-col md:flex-row items-center gap-8">
+            <div class="md:w-1/2"></div>
+            <div class="w-12 h-12 shrink-0 rounded-full border-2 border-violet-500 bg-surface-card flex items-center justify-center font-black text-violet-400 z-10">2</div>
+            <div class="md:w-1/2">
+              <span class="text-xs font-bold text-violet-400 uppercase tracking-widest">Step 2</span>
+              <h3 class="text-xl font-bold mt-2 mb-3">Data Fetch & LSTM Training</h3>
+              <p class="text-slate-400 text-sm leading-relaxed">Backend fetches 2 years of OHLCV data from Yahoo Finance, scales it with MinMaxScaler, and trains (or loads) an LSTM model.</p>
+            </div>
+          </div>
+          <!-- Step 3 -->
+          <div class="flex flex-col md:flex-row items-center gap-8">
+            <div class="md:w-1/2 md:text-right">
+              <span class="text-xs font-bold text-accent uppercase tracking-widest">Step 3</span>
+              <h3 class="text-xl font-bold mt-2 mb-3">Risk Analysis & Scoring</h3>
+              <p class="text-slate-400 text-sm leading-relaxed">Sharpe Ratio, Volatility, Max Drawdown, and VaR are computed. Each stock receives a risk classification and a composite score.</p>
+            </div>
+            <div class="w-12 h-12 shrink-0 rounded-full border-2 border-accent bg-surface-card flex items-center justify-center font-black text-accent z-10">3</div>
+            <div class="md:w-1/2"></div>
+          </div>
+          <!-- Step 4 -->
+          <div class="flex flex-col md:flex-row items-center gap-8">
+            <div class="md:w-1/2"></div>
+            <div class="w-12 h-12 shrink-0 rounded-full border-2 border-pink-500 bg-surface-card flex items-center justify-center font-black text-pink-400 z-10">4</div>
+            <div class="md:w-1/2">
+              <span class="text-xs font-bold text-pink-400 uppercase tracking-widest">Step 4</span>
+              <h3 class="text-xl font-bold mt-2 mb-3">Portfolio Allocation</h3>
+              <p class="text-slate-400 text-sm leading-relaxed">Top-ranked stocks are selected and capital is distributed using inverse-volatility weighting — lower volatility gets more allocation.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─────────────────────────────────────────────────────────── -->
+  <footer class="border-t border-surface-border py-12 px-6 text-center text-slate-500 text-sm">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <p class="font-bold text-white">StockAI</p>
+      <p>© 2024 StockAI. For educational purposes only. Not financial advice.</p>
+      <div class="flex gap-6">
+        <a href="dashboard.html" class="hover:text-white transition">Dashboard</a>
+        <a href="/docs" target="_blank" class="hover:text-white transition">API Docs</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

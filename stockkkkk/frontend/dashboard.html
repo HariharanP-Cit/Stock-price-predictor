@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockAI – Live Dashboard</title>
+  <meta name="description" content="Real-time Indian stock market dashboard with AI predictions, risk analysis, portfolio tracker and watchlist." />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary:  { DEFAULT: '#6366f1', dark: '#4f46e5' },
+            accent:   { DEFAULT: '#10b981', dark: '#059669' },
+            surface:  { DEFAULT: '#0f172a', card: '#1e293b', border: '#334155' },
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+        },
+      },
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="styles/custom.css" />
+</head>
+
+<body class="bg-surface text-slate-100 font-sans min-h-screen dark antialiased">
+
+  <!-- ─── TOP NAV ──────────────────────────────────────────────────────── -->
+  <header class="fixed top-0 inset-x-0 z-50 h-16 border-b border-surface-border bg-surface/90 backdrop-blur-xl flex items-center px-6 justify-between">
+    <a href="index.html" class="flex items-center gap-2 font-extrabold text-xl">
+      <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs">AI</span>
+      Stock<span class="text-primary">AI</span>
+    </a>
+
+    <!-- Ticker scroll -->
+    <div class="hidden lg:block flex-1 mx-8 overflow-hidden">
+      <div class="ticker-move" id="tickerTape"></div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button id="refreshBtn" title="Refresh data"
+        class="p-2 rounded-xl border border-surface-border text-slate-400 hover:text-white hover:border-primary/60 transition text-sm">
+        ↻
+      </button>
+      <span id="lastUpdated" class="text-xs text-slate-600 hidden md:block">—</span>
+      <a href="index.html" class="px-4 py-2 rounded-xl bg-surface-card border border-surface-border text-sm font-semibold hover:border-primary/50 transition">
+        ← Home
+      </a>
+    </div>
+  </header>
+
+  <!-- ─── SIDEBAR (desktop) ────────────────────────────────────────────── -->
+  <div class="flex pt-16 min-h-screen">
+    <aside class="hidden lg:flex flex-col w-56 shrink-0 border-r border-surface-border bg-surface-card/40 p-4 gap-1 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+      <p class="text-xs text-slate-600 uppercase font-semibold tracking-widest px-3 mb-2 mt-1">Navigation</p>
+      <a href="#overview"   class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface-card transition">📊 Overview</a>
+      <a href="#tracker"    class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface-card transition">📈 Live Tracker</a>
+      <a href="#chart"      class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface-card transition">🕯️ Price Chart</a>
+      <a href="#prediction" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface-card transition">🤖 AI Prediction</a>
+      <a href="#risk"       class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface-card transition">🛡️ Risk Analysis</a>
+      <a href="#watchlist"  class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface-card transition">⭐ Watchlist</a>
+      <a href="#portfolio"  class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface-card transition">💼 Portfolio</a>
+
+      <div class="mt-auto pt-4 border-t border-surface-border">
+        <p class="text-xs text-slate-600 px-3 mb-3">Quick Predict</p>
+        <select id="sidebarSymbol"
+          class="w-full px-3 py-2 rounded-xl bg-surface border border-surface-border text-xs text-slate-300 focus:border-primary outline-none mb-2">
+        </select>
+        <button id="sidebarPredictBtn"
+          class="w-full py-2 rounded-xl bg-primary/20 border border-primary/40 text-primary text-xs font-semibold hover:bg-primary/30 transition">
+          Run LSTM →
+        </button>
+      </div>
+    </aside>
+
+    <!-- ─── MAIN CONTENT ──────────────────────────────────────────────── -->
+    <main class="flex-1 p-6 lg:p-8 space-y-10 max-w-full overflow-x-hidden">
+
+      <!-- ── OVERVIEW ─────────────────────────────────────────────────── -->
+      <section id="overview" class="page-enter">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-black">Market Overview</h1>
+            <p class="text-slate-500 text-sm">Indian equity market · NSE stocks</p>
+          </div>
+          <div id="sentimentBadge" class="px-4 py-1.5 rounded-full text-sm font-bold border">—</div>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="stat-card">
+            <p class="text-xs text-slate-500 mb-1">Advancing</p>
+            <p id="advancingCount" class="text-2xl font-black text-gain">—</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-xs text-slate-500 mb-1">Declining</p>
+            <p id="decliningCount" class="text-2xl font-black text-loss">—</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-xs text-slate-500 mb-1">Neutral</p>
+            <p id="neutralCount" class="text-2xl font-black text-slate-400">—</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-xs text-slate-500 mb-1">Total Tracked</p>
+            <p id="totalCount" class="text-2xl font-black text-white">—</p>
+          </div>
+        </div>
+
+        <!-- Gainers / Losers -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rounded-2xl border border-surface-border bg-surface-card p-5">
+            <h3 class="font-bold mb-4 text-gain text-sm uppercase tracking-wider">🔝 Top Gainers</h3>
+            <div id="gainersList" class="space-y-2"></div>
+          </div>
+          <div class="rounded-2xl border border-surface-border bg-surface-card p-5">
+            <h3 class="font-bold mb-4 text-loss text-sm uppercase tracking-wider">📉 Top Losers</h3>
+            <div id="losersList" class="space-y-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── LIVE TRACKER ──────────────────────────────────────────────── -->
+      <section id="tracker">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-black">📈 Live Stock Tracker</h2>
+          <input id="trackerSearch" type="text" placeholder="Search…"
+            class="px-3 py-1.5 rounded-xl bg-surface-card border border-surface-border text-sm text-white placeholder-slate-600 focus:border-primary outline-none w-36 transition" />
+        </div>
+        <div class="rounded-2xl border border-surface-border bg-surface-card overflow-x-auto">
+          <table class="w-full stock-table min-w-[700px]">
+            <thead class="bg-surface">
+              <tr>
+                <th class="text-left">Symbol</th>
+                <th class="text-right">Price</th>
+                <th class="text-right">Change</th>
+                <th class="text-right">% Change</th>
+                <th class="text-right">Volume</th>
+                <th class="text-right">High</th>
+                <th class="text-right">Low</th>
+                <th class="text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="liveTrackerBody">
+              <tr><td colspan="8" class="py-8 text-center text-slate-500">Loading market data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── PRICE CHART ───────────────────────────────────────────────── -->
+      <section id="chart">
+        <div class="rounded-2xl border border-surface-border bg-surface-card p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 class="text-xl font-black">🕯️ Price Chart</h2>
+              <p id="chartSubtitle" class="text-slate-500 text-sm mt-0.5">Select a stock to view</p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <select id="chartSymbol"
+                class="px-3 py-2 rounded-xl bg-surface border border-surface-border text-sm text-white focus:border-primary outline-none">
+              </select>
+              <div class="flex gap-1">
+                <button class="period-btn active tab-btn" data-period="1mo">1M</button>
+                <button class="period-btn tab-btn" data-period="3mo">3M</button>
+                <button class="period-btn tab-btn" data-period="6mo">6M</button>
+                <button class="period-btn tab-btn" data-period="1y">1Y</button>
+                <button class="period-btn tab-btn" data-period="2y">2Y</button>
+              </div>
+            </div>
+          </div>
+          <canvas id="mainPriceChart" height="300"></canvas>
+        </div>
+      </section>
+
+      <!-- ── AI PREDICTION ─────────────────────────────────────────────── -->
+      <section id="prediction">
+        <div class="rounded-2xl border border-surface-border bg-surface-card p-6">
+          <h2 class="text-xl font-black mb-2">🤖 AI Price Prediction</h2>
+          <p class="text-slate-500 text-sm mb-5">LSTM deep learning model – 60-day look-back window</p>
+
+          <div class="flex flex-col sm:flex-row gap-3 mb-6">
+            <select id="predSymbol"
+              class="flex-1 px-4 py-2.5 rounded-xl bg-surface border border-surface-border text-white text-sm focus:border-primary outline-none">
+            </select>
+            <select id="predDays"
+              class="w-32 px-4 py-2.5 rounded-xl bg-surface border border-surface-border text-white text-sm focus:border-primary outline-none">
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30" selected>30 days</option>
+              <option value="60">60 days</option>
+              <option value="90">90 days</option>
+            </select>
+            <button id="runPredBtn"
+              class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-violet-500 text-white font-semibold text-sm hover:opacity-90 transition flex items-center gap-2 shrink-0">
+              <span id="predBtnText">Run Prediction</span>
+              <svg id="predSpinner" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Prediction results -->
+          <div id="predResults" class="hidden">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6" id="predStats"></div>
+            <canvas id="predChart" height="280"></canvas>
+          </div>
+          <div id="predError" class="hidden text-red-400 text-sm text-center py-4"></div>
+          <div id="predLoading" class="hidden text-center py-10 text-slate-500">
+            <div class="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p class="text-sm">Training LSTM model… this may take a moment</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── RISK ANALYSIS ──────────────────────────────────────────────── -->
+      <section id="risk">
+        <div class="rounded-2xl border border-surface-border bg-surface-card p-6">
+          <h2 class="text-xl font-black mb-2">🛡️ Risk Analysis</h2>
+          <p class="text-slate-500 text-sm mb-5">Sharpe Ratio, Volatility, Max Drawdown & more</p>
+
+          <div class="flex gap-3 mb-6">
+            <select id="riskSymbol"
+              class="flex-1 px-4 py-2.5 rounded-xl bg-surface border border-surface-border text-white text-sm focus:border-primary outline-none">
+            </select>
+            <button id="runRiskBtn"
+              class="px-6 py-2.5 rounded-xl bg-accent/20 border border-accent/40 text-accent font-semibold text-sm hover:bg-accent/30 transition flex items-center gap-2">
+              <span>Analyse</span>
+              <svg id="riskSpinner" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div id="riskResults" class="hidden">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6" id="riskStats"></div>
+
+            <!-- Risk vs Return visual -->
+            <div class="rounded-xl bg-surface p-5 border border-surface-border">
+              <canvas id="riskGauge" height="140"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── WATCHLIST ─────────────────────────────────────────────────── -->
+      <section id="watchlist">
+        <div class="rounded-2xl border border-surface-border bg-surface-card p-6">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-xl font-black">⭐ Watchlist</h2>
+            <div class="flex gap-2">
+              <select id="watchlistAddSym"
+                class="px-3 py-1.5 rounded-xl bg-surface border border-surface-border text-xs text-white focus:border-primary outline-none">
+              </select>
+              <button id="watchlistAddBtn"
+                class="px-4 py-1.5 rounded-xl bg-primary/20 border border-primary/40 text-primary text-xs font-semibold hover:bg-primary/30 transition">
+                + Add
+              </button>
+            </div>
+          </div>
+          <div id="watchlistContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <p class="text-slate-500 text-sm col-span-full text-center py-4">Your watchlist is empty. Add stocks above.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PORTFOLIO BUILDER ─────────────────────────────────────────── -->
+      <section id="portfolio">
+        <div class="rounded-2xl border border-surface-border bg-surface-card p-6">
+          <h2 class="text-xl font-black mb-2">💼 Portfolio Builder</h2>
+          <p class="text-slate-500 text-sm mb-6">Get AI-driven portfolio recommendations instantly.</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+            <div>
+              <label class="text-xs text-slate-400 font-semibold block mb-1.5">Capital (₹)</label>
+              <input id="portCapital" type="number" min="10000" placeholder="e.g. 500000"
+                class="w-full px-4 py-2.5 rounded-xl bg-surface border border-surface-border text-white text-sm placeholder-slate-600 focus:border-primary outline-none" />
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 font-semibold block mb-1.5">Risk Tolerance</label>
+              <select id="portRisk"
+                class="w-full px-4 py-2.5 rounded-xl bg-surface border border-surface-border text-white text-sm focus:border-primary outline-none">
+                <option value="Low">🟢 Low</option>
+                <option value="Medium" selected>🟡 Medium</option>
+                <option value="High">🔴 High</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 font-semibold block mb-1.5">Horizon</label>
+              <select id="portHorizon"
+                class="w-full px-4 py-2.5 rounded-xl bg-surface border border-surface-border text-white text-sm focus:border-primary outline-none">
+                <option value="short">Short (&lt;3m)</option>
+                <option value="mid" selected>Mid (3-12m)</option>
+                <option value="long">Long (&gt;1yr)</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="portRunBtn"
+            class="px-8 py-3 rounded-xl bg-gradient-to-r from-primary to-violet-500 text-white font-bold text-sm hover:opacity-90 transition flex items-center gap-2">
+            <span id="portBtnText">🚀 Build Portfolio</span>
+            <svg id="portSpinner" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+          </button>
+
+          <div id="portResults" class="hidden mt-8"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
