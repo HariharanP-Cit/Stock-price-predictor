@@ -274,4 +274,4 @@ This project is for **educational purposes only** and does not constitute financ
 
 ## 👨‍💻 Author
 
-Developed by *[Your Name]*
+Developed by HARIHARAN P
